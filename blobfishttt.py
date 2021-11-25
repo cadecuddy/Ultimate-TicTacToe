@@ -20,31 +20,48 @@ class Board:
         # Check if board filled up
         return not any(0 in row for row in self.board)
 
+    def undo(self):
+        row = math.floor((self.recent_move - 1) / 3)
+        col = (self.recent_move - 1) % 3
+        self.board[row][col] = 0
+
     def possibleMoves(self):
-        moves = 0
+        moves = []
+        r = 0
         for row in self.board:
-            moves += row.count(0)
+            c = 0
+            for col in row:
+                c += 1
+                if col == 0:
+                    moves.append((3 * r) + c)
+            r += 1
         return moves
 
-    def winner(self, id, square):
-        # check if a move that has been made has won the game
-        row = math.floor((square - 1) / 3)
-        col = (square - 1) % 3
+    def get_winner(self):
+        row = math.floor((self.recent_move - 1) / 3)
+        col = (self.recent_move - 1) % 3
+        return self.board[row][col]
+
+    def winner(self):
+        # check if the most recent move that has been made has won the game
+        # and return the winner's id
+        row = math.floor((self.recent_move - 1) / 3)
+        col = (self.recent_move - 1) % 3
 
         # Horizontal Win
-        if all([x == id for x in self.board[row]]):
+        if all([x == self.board[row][col] for x in self.board[row]]):
             return True
 
         # Vertical Win
         column = [row[col] for row in self.board]
-        if all([x == id for x in column]):
+        if all([x == self.board[row][col] for x in column]):
             return True
 
         # Diagonal Win
-        if square % 2 != 0:
+        if self.recent_move % 2 != 0:
             left_diagonal = [self.board[x - 1][x - 1] for x in range(1, 4)]
             right_diagonal = [self.board[x - 1][3 - x] for x in range(1, 4)]
-            if all([x == id for x in right_diagonal]) or all([x == id for x in left_diagonal]):
+            if all([x == self.board[row][col] for x in right_diagonal]) or all([x == self.board[row][col] for x in left_diagonal]):
                 return True
 
         return False
@@ -60,8 +77,9 @@ class Board:
 
         if self.board[row][col] == 0:
             self.board[row][col] = id
+            self.recent_move = square
             return True
-        return False
+        raise ValueError("Already a thing")
 
 
 class Player:
@@ -79,43 +97,56 @@ class AIPlayer:
 
     def make_ai_move(self, board):
         # If board is empty, random first move
-        if board.possibleMoves() == 0:
+        if len(board.possibleMoves()) == 9:
             board.make_move(random.randint(1, 9), -1)
         else:
-            self.minimax()
-        return
+            self.optimal_move(board)
+
+    def optimal_move(self, board):
+        # TODO: Use minimax to find optimal move
+        return -1
 
     def minimax(self, board, maximizing):
-        id = 1
+        id = -1
         if maximizing:
-            id = -1
-        if self.isTerminal():
-            if self.winner() == 0:
-                return 0
-            else:
-                return self.winner()
+            id = 1
+        # If game is a draw
+        if board.isTerminal() and not board.winner():
+            return 0
+        elif board.winner():
+            return 1 if board.get_winner() == id else -1
 
         scores = []
         # go through all possible moves
+        for move in board.possibleMoves():
+            board.make_move(move, id)
+            scores.append(self.minimax(board, not maximizing))
+            board.undo()
 
-        return
+        return max(scores) if maximizing else min(scores)
 
 
 b = Board()
-# print(b.possibleMoves())
-# # print(b)
-# # for x in range(1, 10):
-# #     b.make_move(1, x)
-# #     print(b)
-while not b.isTerminal():
-    try:
-        s = int(input("Pick a square 1 - 9: "))
-        b.make_move(s, 1)
+# Game loop (to play against random AI)
+turn = True
+while True:
+    if turn:
+        try:
+            s = int(input("Pick a square 1 - 9: "))
+            b.make_move(s, 1)
+            print(b)
+            turn = not turn
+        except ValueError:
+            print("Enter a valid square number.")
+            continue
+    else:
+        ai = random.choice(b.possibleMoves())
+        b.make_move(ai, -1)
+        print(f"AI picked square {ai}.")
         print(b)
-        if b.winner(1, s):
-            print(
-                f"\nPlayer has won the game with the winning move on the {s} square!")
-            break
-    except ValueError:
-        print("Enter a valid square number.")
-        continue
+        turn = True
+
+    if b.isTerminal() or b.winner():
+        print(
+            f"\n{b.get_winner()} has won the game!")
+        break
