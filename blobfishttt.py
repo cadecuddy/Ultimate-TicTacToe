@@ -21,6 +21,7 @@ class Board:
         return not any(0 in row for row in self.board)
 
     def undo(self):
+        # Undo the most recent move
         row = math.floor((self.recent_move - 1) / 3)
         col = (self.recent_move - 1) % 3
         self.board[row][col] = 0
